@@ -1,0 +1,16 @@
+torch>=2.0.0
+diffusers>=0.18.0
+transformers>=4.30.0
+accelerate>=1.12.0
+bitsandbytes>=0.40.0
+safetensors
+einops
+ftfy
+opencv-python
+tqdm
+datasets
+oras
+# Optional (install if you want memory-efficient attention)
+xformers==0.0.20  # optional: may fail to build on some machines; try binary wheels if available
+# Optional: for flow-based frame interpolation / polishing
+# rife-ncnn-vulkan or a Python implementation (not listed here)
