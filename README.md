@@ -1,48 +1,46 @@
-Text→Video pipeline + LoRA (RTX 4060 / low-VRAM)
-This repository contains a low-VRAM-focused starter pipeline to:
+# FrameForgeXL - SDXL Text→Video Pipeline (Low-VRAM, RTX 4060)
 
-Fine-tune LoRA adapters for a Stable-Diffusion-style U-Net on video frames (or frame datasets).
-Inference pipeline to render short clips from text prompts and apply simple post-processing.
-Practical configuration tuned for an RTX 4060 (≈8GB VRAM).
-Quick summary
+This repository addition provides a low-VRAM-focused starter pipeline for text→video using SDXL as the base model, with LoRA adapters designed to be trainable on an RTX 4060 (≈8GB VRAM).
 
-Target GPU: RTX 4060 (8GB). All scripts aim to keep VRAM usage minimal: batch_size=1, gradient_accumulation, 8-bit optimizer, mixed precision (fp16), gradient checkpointing, attention slicing, optional CPU offload.
-Base model: any diffusers-compatible stable-diffusion checkpoint (default: runwayml/stable-diffusion-v1-5). For temporal-aware models (AnimateDiff-style), adaption is noted in comments.
-LoRA style: small adapters applied to attention projection matrices. Only LoRA weights are trained and saved.
-Contents
+Overview
+- Target GPU: RTX 4060 (8GB). All scripts favor memory-sparing techniques: batch_size=1, gradient accumulation, bitsandbytes 8-bit optimizer, mixed precision (fp16), gradient checkpointing, attention slicing, optional CPU offload.
+- Base model: SDXL (stabilityai/stable-diffusion-xl-base-1.0) by default. SDXL has a different architecture vs SDv1.x; the scripts include heuristics to find attention modules and attach LoRA adapters accordingly and include notes where manual adjustments may be needed.
+- LoRA style: multiple adapters inserted where possible:
+  - Attention projection LoRAs for query/key/value (UNet attention blocks)
+  - Optional text-encoder LoRA (for CLIP-like encoders)
+  - Hooks for temporal LoRA adapters (if you use an AnimateDiff/Tune-A-Video style UNet with temporal attention)
 
-requirements.txt — Python packages to install.
-scripts/train_lora_4060.py — LoRA training script optimized for low VRAM.
-scripts/infer_video_4060.py — Inference script to generate frames from prompts and assemble a short video.
-scripts/preprocess_videos.py — Helper to extract frames from video files and prepare dataset shards.
+Files added
+- scripts/preprocess_videos.py — extract clips and frames; create per-clip metadata
+- scripts/train_lora_4060_sdxl.py — LoRA training script optimized for low VRAM and SDXL
+- scripts/infer_video_4060_sdxl.py — inference script to generate short clips using SDXL + LoRA
+- requirements-sdxl.txt — dependency pins (SDXL-friendly)
+- .gitignore — standard ignores
+
 Important notes
+- SDXL is large and may still be challenging on an 8GB GPU. These scripts emphasize LoRA-only training and many memory optimizations, but you may need to use CPU offload or further reduce resolution (512) for training.
+- If you plan to use SDXL refiner and base pairs, or a specific community SDXL checkpoint, adjust the --model_id argument accordingly.
 
-The starter LoRA focuses on spatial/style adapters (per-frame). Extending to temporal LoRA requires a temporal-attention-capable U-Net (AnimateDiff/Tune-A-Video style). I include notes inside the training script how to adapt to temporal attention modules if you use such a U-Net.
-Expect to work at 512×512 or lower for training on a 4060. For higher resolution, use lower batch sizes and stronger offload (or use keyframe+interpolation strategies).
-If you want me to push these into a GitHub repo or adapt to a specific base checkpoint (e.g., an AnimateDiff checkpoint), tell me and I will prepare that.
-Quick start (recommended)
+Quick start
+1. Create venv and install deps:
+   python -m venv .venv && source .venv/bin/activate
+   pip install -r requirements-sdxl.txt
 
-Create a Python virtualenv and install dependencies:
+2. Prepare clip frames:
+   python scripts/preprocess_videos.py --input_dir videos/ --output_dir data/frames --frames_per_clip 8 --stride 4
 
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-Prepare dataset:
+3. Configure accelerate (single GPU, mixed precision=fp16):
+   accelerate config
 
-Use scripts/preprocess_videos.py to extract frames and captions (or point training script at a folder of frames + captions.jsonl).
-Train LoRA:
+4. Train LoRA (example):
+   accelerate launch scripts/train_lora_4060_sdxl.py --model_id stabilityai/stable-diffusion-xl-base-1.0 --dataset_dir ./data/frames --output_dir ./lora_out --resolution 512 --epochs 3 --batch_size 1 --grad_accum_steps 4
 
-Use the accelerate launcher: accelerate launch scripts/train_lora_4060.py --model_id runwayml/stable-diffusion-v1-5 --dataset_dir ./data/frames --output_dir ./lora_out --resolution 512 --epochs 3
-See training script args for more tuning.
-Inference (generate a short clip):
+5. Inference:
+   python scripts/infer_video_4060_sdxl.py --model_id stabilityai/stable-diffusion-xl-base-1.0 --lora_path ./lora_out/lora_final.pt --prompt "A neon cyberpunk car driving through rainy night" --frames 8 --resolution 512 --out_dir ./out
 
-python scripts/infer_video_4060.py --model_id runwayml/stable-diffusion-v1-5 --lora_path ./lora_out/lora_final.pt --prompt "A neon cyberpunk car driving through rainy night" --frames 8 --resolution 512
-Helpful environment vars (reduce fragmentation)
+If you'd like, I can:
+- Modify LoRA placement specifically to your SDXL checkpoint if you provide the exact ID
+- Push adjustments to use SDXL base+refiner pair
+- Add a GitHub Actions workflow to run lightweight lint/tests
 
-export PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:128
-export TRANSFORMERS_NO_ADVISORY_WARNINGS=1
-If you want, I can:
-
-Convert this scaffold into a GitHub repo and push it.
-Customize the LoRA adapter placement to an AnimateDiff checkpoint for temporal LoRA training.
-Add a minimal Colab notebook for interactive runs (not ideal for 4060 but useful for sharing).
-Read the script docstrings for details and next steps.
+---

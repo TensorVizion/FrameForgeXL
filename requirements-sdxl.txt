@@ -1,0 +1,17 @@
+# SDXL low-VRAM requirements
+
+torch>=2.1.0
+transformers>=4.35.0
+accelerate>=1.15.0
+bitsandbytes>=0.39.0
+diffusers>=0.23.0
+safetensors
+einops
+ftfy
+opencv-python
+tqdm
+datasets
+xformers==0.0.20  # optional, use if you can install a compatible wheel
+
+# Optional for flow-based interpolation/polishing
+# install a frame interpolation tool separately (RIFE, CAIN, etc.)

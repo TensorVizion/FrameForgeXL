@@ -1,0 +1,21 @@
+# Byte-compiled / environment
+__pycache__/
+.env
+.venv/
+
+# Data
+data/
+out/
+lora_out/
+
+# Python
+*.pyc
+*.pyo
+
+# Model checkpoints
+*.ckpt
+*.pt
+*.safetensors
+
+# OS
+.DS_Store
